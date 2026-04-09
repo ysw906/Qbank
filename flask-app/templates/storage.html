@@ -9,28 +9,36 @@
 </div>
 
 <div class="filter-bar">
-    <span style="font-weight: 600; font-size: 0.9rem;">단원 필터:</span>
+    <span class="filter-label">단원</span>
     <a href="{{ url_for('storage') }}" class="btn btn-sm {% if not selected_chapter %}btn-primary{% else %}btn-outline{% endif %}">전체</a>
     {% for title in chapter_titles %}
         <a href="{{ url_for('storage', chapter=title) }}" class="btn btn-sm {% if selected_chapter == title %}btn-primary{% else %}btn-outline{% endif %}">
-            {{ title[:25] }}{% if title|length > 25 %}...{% endif %}
+            {{ title[:20] }}{% if title|length > 20 %}…{% endif %}
         </a>
     {% endfor %}
 </div>
 
 <div class="stats-bar">
     <div class="stat-item">
-        <span>저장된 문제:</span>
-        <span class="stat-value">{{ questions|length }}</span>
+        저장된 문제 <span class="stat-value">{{ questions|length }}</span>
     </div>
 </div>
 
 {% if questions|length == 0 %}
-<div class="empty-state">
-    <div class="icon">📚</div>
-    <h3>저장된 문제가 없습니다</h3>
-    <p>문제를 생성하고 저장하면 여기에 표시됩니다.</p>
-    <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top: 1rem;">문제 생성하러 가기</a>
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+        </div>
+        <h3>저장된 문제가 없습니다</h3>
+        <p>문제를 생성하고 저장하면 여기에 표시됩니다.</p>
+        <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top: 1.25rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            문제 생성하러 가기
+        </a>
+    </div>
 </div>
 {% endif %}
 
@@ -38,49 +46,63 @@
 <div class="question-card" id="storage-card-{{ q.id }}">
     <div class="question-card-header">
         <div class="question-number">
-            <strong>#{{ q.id }}</strong>
+            <div class="q-num" style="background:linear-gradient(135deg,#64748b,#475569); font-size:.65rem;">#{{ q.id }}</div>
             {% if q.question_type == 'multiple_choice' %}
                 <span class="question-badge badge-mc">객관식</span>
             {% else %}
                 <span class="question-badge badge-sa">서술형</span>
             {% endif %}
             {% if q.chapter_title %}
-                <span class="badge-chapter">{{ q.chapter_title[:20] }}</span>
+                <span class="badge-chapter">{{ q.chapter_title }}</span>
             {% endif %}
             {% if q.is_edited %}
-                <span class="saved-badge">수정됨</span>
+                <span class="saved-badge">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    수정됨
+                </span>
             {% endif %}
         </div>
         <div class="question-actions">
-            <button class="btn btn-success btn-sm" onclick="updateStorageQuestion({{ q.id }})">수정 저장</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteStorageQuestion({{ q.id }})">삭제</button>
+            <button class="btn btn-success btn-sm" onclick="updateStorageQuestion({{ q.id }})">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                저장
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="deleteStorageQuestion({{ q.id }})">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                삭제
+            </button>
         </div>
     </div>
 
-    <div class="form-group">
-        <label class="form-label">문제</label>
-        <textarea class="form-control question-text" rows="3">{{ q.question_text }}</textarea>
-    </div>
+    <div class="question-card-body">
+        <div class="form-group">
+            <label class="form-label">문제</label>
+            <textarea class="form-control question-text" rows="3">{{ q.question_text }}</textarea>
+        </div>
 
-    {% if q.choices %}
-    <div class="choices-section">
-        <label class="form-label">보기</label>
-        {% for choice in q.choices %}
-            <div class="choice-item">
-                <input type="text" class="form-control choice-input" value="{{ choice }}">
+        {% if q.choices %}
+        <div class="choices-section">
+            <label class="form-label">보기</label>
+            {% for choice in q.choices %}
+                <div class="choice-item">
+                    <div class="choice-num">{{ loop.index }}</div>
+                    <input type="text" class="form-control choice-input" value="{{ choice }}">
+                </div>
+            {% endfor %}
+            <div style="margin-bottom:.75rem;"></div>
+        </div>
+        {% endif %}
+
+        <div class="grid-2" style="gap:.75rem;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">정답</label>
+                <textarea class="form-control answer-text" rows="2">{{ q.answer }}</textarea>
             </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <div class="form-group">
-        <label class="form-label">정답</label>
-        <textarea class="form-control answer-text" rows="2">{{ q.answer }}</textarea>
-    </div>
-
-    <div class="form-group" style="margin-bottom: 0;">
-        <label class="form-label">해설</label>
-        <textarea class="form-control explanation-text" rows="2">{{ q.explanation or '' }}</textarea>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">해설</label>
+                <textarea class="form-control explanation-text" rows="2">{{ q.explanation or '' }}</textarea>
+            </div>
+        </div>
     </div>
 </div>
 {% endfor %}
