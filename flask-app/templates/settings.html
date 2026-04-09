@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}문제 생성 설정 - 과학 문제 생성기{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>문제 생성 설정</h1>
+    <p>단원을 선택하고 문제 생성 옵션을 설정하세요.</p>
+</div>
+
+{% if not ollama_available %}
+<div class="demo-banner">
+    <strong>데모 모드로 동작합니다.</strong> Ollama가 감지되지 않아 샘플 문제가 생성됩니다. 실제 AI 문제 생성을 원하시면 Ollama를 설치하세요.
+</div>
+{% endif %}
+
+<form action="{{ url_for('generate') }}" method="POST" id="settings-form">
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">단원 선택</h3>
+        <div class="checkbox-group">
+            {% for chapter in chapters %}
+            <div class="checkbox-item">
+                <input type="checkbox" name="chapters" value="{{ loop.index0 }}" id="chapter-{{ loop.index0 }}"
+                    {% if loop.first %}checked{% endif %}>
+                <label for="chapter-{{ loop.index0 }}">
+                    <strong>{{ chapter.title }}</strong>
+                    <br><small style="color: var(--text-muted);">{{ chapter.content[:100] }}...</small>
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="form-group">
+                <label class="form-label">문제 수</label>
+                <select name="question_count" class="form-control">
+                    <option value="3">3문제</option>
+                    <option value="5" selected>5문제</option>
+                    <option value="7">7문제</option>
+                    <option value="10">10문제</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">문제 유형</label>
+                <div class="radio-group">
+                    <div class="radio-item">
+                        <input type="radio" name="question_type" value="multiple_choice" id="type-mc">
+                        <label for="type-mc">객관식</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" name="question_type" value="short_answer" id="type-sa">
+                        <label for="type-sa">서술형</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" name="question_type" value="mixed" id="type-mix" checked>
+                        <label for="type-mix">혼합</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="form-group">
+                <label class="form-label">난이도</label>
+                <div class="radio-group" style="flex-direction: column;">
+                    <div class="radio-item">
+                        <input type="radio" name="difficulty" value="easy" id="diff-easy">
+                        <label for="diff-easy">쉬움 - 기본 개념 확인</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" name="difficulty" value="medium" id="diff-medium" checked>
+                        <label for="diff-medium">보통 - 개념 적용 및 이해</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" name="difficulty" value="hard" id="diff-hard">
+                        <label for="diff-hard">어려움 - 심화 사고 및 분석</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary btn-lg">문제 생성하기</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('settings-form').addEventListener('submit', function(e) {
+    var checked = document.querySelectorAll('input[name="chapters"]:checked');
+    if (checked.length === 0) {
+        e.preventDefault();
+        showToast('최소 1개의 단원을 선택하세요.', 'error');
+        return;
+    }
+    showLoading('문제를 생성하고 있습니다... 잠시만 기다려주세요.');
+});
+</script>
+{% endblock %}

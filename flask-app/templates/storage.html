@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}문제 저장소 - 과학 문제 생성기{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>문제 저장소</h1>
+    <p>저장된 문제를 확인하고 수정하거나 재사용할 수 있습니다.</p>
+</div>
+
+<div class="filter-bar">
+    <span style="font-weight: 600; font-size: 0.9rem;">단원 필터:</span>
+    <a href="{{ url_for('storage') }}" class="btn btn-sm {% if not selected_chapter %}btn-primary{% else %}btn-outline{% endif %}">전체</a>
+    {% for title in chapter_titles %}
+        <a href="{{ url_for('storage', chapter=title) }}" class="btn btn-sm {% if selected_chapter == title %}btn-primary{% else %}btn-outline{% endif %}">
+            {{ title[:25] }}{% if title|length > 25 %}...{% endif %}
+        </a>
+    {% endfor %}
+</div>
+
+<div class="stats-bar">
+    <div class="stat-item">
+        <span>저장된 문제:</span>
+        <span class="stat-value">{{ questions|length }}</span>
+    </div>
+</div>
+
+{% if questions|length == 0 %}
+<div class="empty-state">
+    <div class="icon">📚</div>
+    <h3>저장된 문제가 없습니다</h3>
+    <p>문제를 생성하고 저장하면 여기에 표시됩니다.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top: 1rem;">문제 생성하러 가기</a>
+</div>
+{% endif %}
+
+{% for q in questions %}
+<div class="question-card" id="storage-card-{{ q.id }}">
+    <div class="question-card-header">
+        <div class="question-number">
+            <strong>#{{ q.id }}</strong>
+            {% if q.question_type == 'multiple_choice' %}
+                <span class="question-badge badge-mc">객관식</span>
+            {% else %}
+                <span class="question-badge badge-sa">서술형</span>
+            {% endif %}
+            {% if q.chapter_title %}
+                <span class="badge-chapter">{{ q.chapter_title[:20] }}</span>
+            {% endif %}
+            {% if q.is_edited %}
+                <span class="saved-badge">수정됨</span>
+            {% endif %}
+        </div>
+        <div class="question-actions">
+            <button class="btn btn-success btn-sm" onclick="updateStorageQuestion({{ q.id }})">수정 저장</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteStorageQuestion({{ q.id }})">삭제</button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">문제</label>
+        <textarea class="form-control question-text" rows="3">{{ q.question_text }}</textarea>
+    </div>
+
+    {% if q.choices %}
+    <div class="choices-section">
+        <label class="form-label">보기</label>
+        {% for choice in q.choices %}
+            <div class="choice-item">
+                <input type="text" class="form-control choice-input" value="{{ choice }}">
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+        <label class="form-label">정답</label>
+        <textarea class="form-control answer-text" rows="2">{{ q.answer }}</textarea>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">해설</label>
+        <textarea class="form-control explanation-text" rows="2">{{ q.explanation or '' }}</textarea>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
