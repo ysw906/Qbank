@@ -178,29 +178,50 @@ async function handleUpload() {
         // 1️⃣ PDF → 텍스트
         const text = await extractTextFromPDF(file);
 
-        // 2️⃣ Worker로 전송
+        // 🔥 Worker로 보낼 때 "prompt"로 통일
         const res = await fetch("https://qbank.ysw906.workers.dev", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                text: text.slice(0, 5000) // 길이 제한
+                prompt: `
+다음 텍스트를 기반으로:
+1. 단원 구조(chapters)
+2. 과학 문제(questions)
+
+JSON으로만 반환해:
+
+TEXT:
+${text.slice(0, 5000)}
+                `
             })
         });
 
-        const data = await res.json();
+        const raw = await res.text();
 
-        // 3️⃣ 결과 저장
-        const chapters = JSON.parse(data.chapters);
-        const questions = JSON.parse(data.questions);
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch (e) {
+            console.error("서버 응답:", raw);
+            throw new Error("JSON 파싱 실패");
+        }
+
+        if (!res.ok) {
+            throw new Error(data.error || "서버 오류");
+        }
+
+        // 🔥 Worker가 result 하나만 주는 구조 기준
+        const parsed = JSON.parse(data.result);
+
+        const chapters = parsed.chapters || [];
+        const questions = parsed.questions || [];
 
         sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(chapters));
         sessionStorage.setItem('sciQuiz_session', JSON.stringify(questions));
 
         hideLoading();
-
-        // 4️⃣ 편집기로 이동
         window.location.href = 'editor.html';
 
     } catch (err) {
