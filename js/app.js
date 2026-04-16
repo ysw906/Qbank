@@ -15,16 +15,45 @@ async function extractTextFromPDF(file) {
 }
 
 async function generateWithAI(prompt) {
-    const res = await fetch("https://qbank.ysw906.workers.dev", {
+    const res = await fetch("http://localhost:11434/api/generate", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({
+            model: "qwen2.5:7b",
+            prompt: `
+너는 과학 문제 생성 AI다.
+반드시 JSON만 출력해.
+설명, 말, 텍스트 절대 금지.
+
+형식:
+{
+  "chapters": [{"title":"단원명","content":"내용"}],
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "question": "문제",
+      "choices": ["보기1","보기2","보기3","보기4"],
+      "answer": "정답",
+      "explanation": "해설"
+    }
+  ]
+}
+
+${prompt}
+            `,
+            stream: false
+        })
     });
 
     const data = await res.json();
-    return data.result;
+
+    if (!data.response) {
+        throw new Error("Ollama 응답 없음");
+    }
+
+    return data.response;
 }
 
 // ── 로컬 스토리지 키 ────────────────────────
@@ -175,53 +204,42 @@ async function handleUpload() {
     try {
         const file = input.files[0];
 
+        // ✅ PDF → 텍스트
         const text = await extractTextFromPDF(file);
 
         const safeText = String(text || "").trim();
 
         if (safeText.length < 20) {
-            throw new Error("PDF에서 텍스트를 추출하지 못함 (스캔 PDF 가능)");
+            throw new Error("PDF 텍스트 추출 실패 (스캔 PDF 가능)");
         }
 
-        const res = await fetch("https://qbank.ysw906.workers.dev", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                prompt: safeText.slice(0, 5000)
-            })
-        });
+        // ✅ Ollama 직접 호출 (Worker 제거)
+        const result = await generateWithAI(safeText.slice(0, 3000));
 
-        const raw = await res.text();
+        console.log("AI RAW:", result);
 
-        if (!res.ok) {
-            console.error("Worker error raw:", raw);
-            throw new Error("서버 오류: " + res.status);
-        }
+        // ✅ 코드블럭 제거
+        let cleaned = result
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
 
-        let data;
-        try {
-            data = JSON.parse(raw);
-        } catch {
-            console.error("Worker 응답:", raw);
-            throw new Error("응답 파싱 실패");
-        }
-
-        if (!data.result) {
-            throw new Error("AI 결과 없음");
-        }
-
+        // ✅ JSON 파싱 보호
         let parsed;
         try {
-            parsed = JSON.parse(data.result);
-        } catch {
-            console.error("AI JSON:", data.result);
-            throw new Error("AI 형식 오류");
+            parsed = JSON.parse(cleaned);
+        } catch (e) {
+            console.error("파싱 실패 원본:", cleaned);
+            throw new Error("AI JSON 깨짐");
         }
 
+        if (!parsed.questions) {
+            throw new Error("questions 없음");
+        }
+
+        // ✅ 저장
         sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(parsed.chapters || []));
-        sessionStorage.setItem('sciQuiz_session', JSON.stringify(parsed.questions || []));
+        sessionStorage.setItem('sciQuiz_session', JSON.stringify(parsed.questions));
 
         hideLoading();
         window.location.href = 'editor.html';
