@@ -1,5 +1,5 @@
 async function generateWithAI(prompt) {
-    const res = await fetch("https://너의-worker-url.workers.dev", {
+    const res = await fetch("https://qbank.ysw906.workers.dev", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
