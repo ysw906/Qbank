@@ -146,18 +146,46 @@ function onFileSelected(file) {
     document.getElementById('upload-desc').textContent = '파일이 선택되었습니다.';
 }
 
-function handleUpload() {
+async function handleUpload() {
     var input = document.getElementById('pdf-file');
+
     if (!input.files || input.files.length === 0) {
         showToast('PDF 파일을 먼저 선택해주세요.', 'error');
         return;
     }
-    showLoading('PDF를 분석하고 있습니다...');
-    setTimeout(function() {
+
+    const file = input.files[0];
+
+    showLoading('PDF 내용을 분석 중입니다...');
+
+    try {
+        // 👉 파일 이름 기반으로라도 프롬프트 생성 (임시)
+        const prompt = `
+다음은 과학 교재 파일이다:
+
+파일명: ${file.name}
+
+이 파일의 단원을 추정해서 JSON으로 만들어라.
+
+형식:
+[
+  { "title": "1단원. ~", "content": "설명" }
+]
+`;
+
+        const result = await generateWithAI(prompt);
+        const chapters = JSON.parse(result);
+
+        sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(chapters));
+
         hideLoading();
-        sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(DEMO_CHAPTERS));
         window.location.href = 'settings.html';
-    }, 1800);
+
+    } catch (err) {
+        console.error(err);
+        hideLoading();
+        showToast('단원 분석 실패', 'error');
+    }
 }
 
 // ── 설정 페이지 ─────────────────────────────
