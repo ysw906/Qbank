@@ -174,46 +174,46 @@ async function handleUpload() {
 
     try {
         const file = input.files[0];
-
-        // 1️⃣ PDF → 텍스트
         const text = await extractTextFromPDF(file);
 
-        // 🔥 Worker로 보낼 때 "prompt"로 통일
         const res = await fetch("https://qbank.ysw906.workers.dev", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: `
-다음 텍스트를 기반으로:
-1. 단원 구조(chapters)
-2. 과학 문제(questions)
-
-JSON으로만 반환해:
-
-TEXT:
-${text.slice(0, 5000)}
-                `
+                prompt: String(text || "").slice(0, 5000)
             })
         });
 
         const raw = await res.text();
 
+        // 🔥 서버 에러 먼저 체크
+        if (!res.ok) {
+            console.error("Worker error:", raw);
+            throw new Error("HTTP " + res.status);
+        }
+
         let data;
         try {
             data = JSON.parse(raw);
         } catch (e) {
-            console.error("서버 응답:", raw);
+            console.error("JSON parse 실패:", raw);
             throw new Error("JSON 파싱 실패");
         }
 
-        if (!res.ok) {
-            throw new Error(data.error || "서버 오류");
+        if (!data.result) {
+            console.error("result 없음:", data);
+            throw new Error("AI 응답 없음");
         }
 
-        // 🔥 Worker가 result 하나만 주는 구조 기준
-        const parsed = JSON.parse(data.result);
+        let parsed;
+        try {
+            parsed = JSON.parse(data.result);
+        } catch (e) {
+            console.error("AI JSON 깨짐:", data.result);
+            throw new Error("AI 결과 형식 오류");
+        }
 
         const chapters = parsed.chapters || [];
         const questions = parsed.questions || [];
