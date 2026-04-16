@@ -177,11 +177,11 @@ async function handleUpload() {
 
         const text = await extractTextFromPDF(file);
 
-        // 🔥 핵심: 무조건 string + fallback
-        const safeText = (text || "").trim();
+        console.log("PDF TEXT LENGTH:", text?.length);
 
-        if (!safeText) {
-            throw new Error("PDF 텍스트 추출 실패");
+        // 🔥 핵심 방어
+        if (!text || text.trim().length < 10) {
+            throw new Error("PDF에서 텍스트를 추출하지 못함");
         }
 
         const res = await fetch("https://qbank.ysw906.workers.dev", {
@@ -190,22 +190,21 @@ async function handleUpload() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: safeText.slice(0, 5000)
+                prompt: text.slice(0, 5000)
             })
         });
 
         const raw = await res.text();
 
-        // 🔥 여기서 무조건 먼저 체크
         if (!res.ok) {
-            console.error("Worker error:", raw);
-            throw new Error("HTTP " + res.status);
+            console.error("Worker 400/500:", raw);
+            throw new Error("서버 오류 " + res.status);
         }
 
         let data;
         try {
             data = JSON.parse(raw);
-        } catch (e) {
+        } catch {
             console.error("응답 깨짐:", raw);
             throw new Error("JSON 파싱 실패");
         }
@@ -217,16 +216,13 @@ async function handleUpload() {
         let parsed;
         try {
             parsed = JSON.parse(data.result);
-        } catch (e) {
-            console.error("AI JSON 깨짐:", data.result);
+        } catch {
+            console.error("AI JSON 오류:", data.result);
             throw new Error("AI 포맷 오류");
         }
 
-        const chapters = parsed.chapters || [];
-        const questions = parsed.questions || [];
-
-        sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(chapters));
-        sessionStorage.setItem('sciQuiz_session', JSON.stringify(questions));
+        sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(parsed.chapters || []));
+        sessionStorage.setItem('sciQuiz_session', JSON.stringify(parsed.questions || []));
 
         hideLoading();
         window.location.href = 'editor.html';
@@ -234,7 +230,7 @@ async function handleUpload() {
     } catch (err) {
         console.error(err);
         hideLoading();
-        showToast(err.message || 'AI 처리 실패', 'error');
+        showToast(err.message, 'error');
     }
 }
 
