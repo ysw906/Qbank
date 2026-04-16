@@ -1,3 +1,19 @@
+async function extractTextFromPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let text = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(item => item.str);
+        text += strings.join(" ") + "\n";
+    }
+
+    return text;
+}
+
 async function generateWithAI(prompt) {
     const res = await fetch("https://qbank.ysw906.workers.dev", {
         method: "POST",
@@ -147,44 +163,50 @@ function onFileSelected(file) {
 }
 
 async function handleUpload() {
-    var input = document.getElementById('pdf-file');
+    const input = document.getElementById('pdf-file');
 
-    if (!input.files || input.files.length === 0) {
-        showToast('PDF 파일을 먼저 선택해주세요.', 'error');
+    if (!input.files.length) {
+        showToast('PDF 파일 선택해', 'error');
         return;
     }
 
-    const file = input.files[0];
-
-    showLoading('PDF 내용을 분석 중입니다...');
+    showLoading('PDF 분석 중...');
 
     try {
-        // 👉 파일 이름 기반으로라도 프롬프트 생성 (임시)
-        const prompt = `
-다음은 과학 교재 파일이다:
+        const file = input.files[0];
 
-파일명: ${file.name}
+        // 1️⃣ PDF → 텍스트
+        const text = await extractTextFromPDF(file);
 
-이 파일의 단원을 추정해서 JSON으로 만들어라.
+        // 2️⃣ Worker로 전송
+        const res = await fetch("https://qbank.ysw906.workers.dev", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                text: text.slice(0, 5000) // 길이 제한
+            })
+        });
 
-형식:
-[
-  { "title": "1단원. ~", "content": "설명" }
-]
-`;
+        const data = await res.json();
 
-        const result = await generateWithAI(prompt);
-        const chapters = JSON.parse(result);
+        // 3️⃣ 결과 저장
+        const chapters = JSON.parse(data.chapters);
+        const questions = JSON.parse(data.questions);
 
         sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(chapters));
+        sessionStorage.setItem('sciQuiz_session', JSON.stringify(questions));
 
         hideLoading();
-        window.location.href = 'settings.html';
+
+        // 4️⃣ 편집기로 이동
+        window.location.href = 'editor.html';
 
     } catch (err) {
         console.error(err);
         hideLoading();
-        showToast('단원 분석 실패', 'error');
+        showToast('AI 처리 실패', 'error');
     }
 }
 
