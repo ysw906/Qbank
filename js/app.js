@@ -1,3 +1,16 @@
+async function generateWithAI(prompt) {
+    const res = await fetch("http://localhost:5000/generate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ prompt })
+    });
+
+    const data = await res.json();
+    return data.result;
+}
+
 // ── 로컬 스토리지 키 ────────────────────────
 var STORAGE_KEY = 'sciQuiz_questions';
 var SESSION_KEY = 'sciQuiz_session';
@@ -166,7 +179,7 @@ function renderSettings() {
     });
 }
 
-function generateQuestions() {
+async function generateQuestions() {
     var chapters;
     try { chapters = JSON.parse(sessionStorage.getItem('sciQuiz_chapters')); } catch(e) { chapters = null; }
     if (!chapters || chapters.length === 0) chapters = DEMO_CHAPTERS;
@@ -175,6 +188,7 @@ function generateQuestions() {
     document.querySelectorAll('input[name="chapters"]:checked').forEach(function(cb) {
         selected.push(parseInt(cb.value));
     });
+
     if (selected.length === 0) {
         showToast('최소 1개의 단원을 선택하세요.', 'error');
         return;
@@ -183,35 +197,59 @@ function generateQuestions() {
     var count = parseInt(document.getElementById('q-count').value);
     var type = document.querySelector('input[name="q-type"]:checked').value;
 
-    showLoading('문제를 생성하고 있습니다...');
+    showLoading('AI가 문제를 생성 중입니다...');
 
-    setTimeout(function() {
-        var questions = [];
-        var pool = DEMO_QUESTIONS.slice();
+    try {
+        var selectedTitles = selected.map(function(i) {
+            return chapters[i].title;
+        });
 
-        // 선택된 단원 기반 필터링
-        var selectedTitles = selected.map(function(i) { return chapters[i].title; });
+        var prompt = `
+다음 단원을 기반으로 중학교 과학 문제 ${count}개를 만들어줘.
 
-        // 문제 풀 확장 (선택된 단원에 맞게)
-        for (var attempt = 0; questions.length < count && attempt < count * 3; attempt++) {
-            var q = JSON.parse(JSON.stringify(pool[attempt % pool.length]));
-            if (selectedTitles.length > 0) {
-                q.chapterTitle = selectedTitles[attempt % selectedTitles.length];
-            }
-            if (type !== 'mixed') {
-                q.type = type;
-                if (type === 'short_answer') q.choices = null;
-                else if (type === 'multiple_choice' && !q.choices) {
-                    q.choices = ['보기 1', '보기 2', '보기 3', '보기 4'];
-                }
-            }
-            questions.push(q);
-        }
+조건:
+- 반드시 JSON 배열만 출력 (설명 금지)
+- 형식:
+
+[
+  {
+    "type": "multiple_choice 또는 short_answer",
+    "question": "문제",
+    "choices": ["보기1","보기2","보기3","보기4"], 
+    "answer": "정답",
+    "explanation": "해설"
+  }
+]
+
+- 객관식이면 choices 포함
+- 서술형이면 choices = null
+
+단원:
+${selectedTitles.join(", ")}
+
+문제 유형: ${type}
+`;
+
+        var result = await generateWithAI(prompt);
+
+        // 👉 JSON 파싱
+        var questions = JSON.parse(result);
+
+        // 단원 정보 붙이기
+        questions.forEach(function(q, i) {
+            q.chapterTitle = selectedTitles[i % selectedTitles.length];
+        });
 
         setSession(questions);
+
         hideLoading();
         window.location.href = 'editor.html';
-    }, 2000);
+
+    } catch (err) {
+        console.error(err);
+        hideLoading();
+        showToast('AI 문제 생성 실패 (JSON 오류 가능)', 'error');
+    }
 }
 
 // ── 편집기 ───────────────────────────────────
