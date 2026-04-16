@@ -205,7 +205,7 @@ async function generateQuestions() {
         });
 
         var prompt = `
-다음 단원을 기반으로 중학교 과학 문제 ${count}개를 만들어줘.
+다음 단원을 기반으로 초등학교 과학 문제 ${count}개를 만들어줘.
 
 조건:
 - 반드시 JSON 배열만 출력 (설명 금지)
