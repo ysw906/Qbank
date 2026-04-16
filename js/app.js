@@ -175,17 +175,14 @@ async function handleUpload() {
     try {
         const file = input.files[0];
 
-        // 1️⃣ PDF → 텍스트
         const text = await extractTextFromPDF(file);
 
-        // 🔥 PDF 방어 (핵심)
-        const safeText = (text || "").trim();
+        const safeText = String(text || "").trim();
 
-        if (safeText.length < 10) {
-            throw new Error("PDF에서 텍스트를 추출하지 못함");
+        if (safeText.length < 20) {
+            throw new Error("PDF에서 텍스트를 추출하지 못함 (스캔 PDF 가능)");
         }
 
-        // 2️⃣ Worker 요청
         const res = await fetch("https://qbank.ysw906.workers.dev", {
             method: "POST",
             headers: {
@@ -198,18 +195,16 @@ async function handleUpload() {
 
         const raw = await res.text();
 
-        // 🔥 서버 에러 방어
         if (!res.ok) {
-            console.error("Worker error:", raw);
-            throw new Error("서버 오류 " + res.status);
+            console.error("Worker error raw:", raw);
+            throw new Error("서버 오류: " + res.status);
         }
 
-        // 3️⃣ Worker 응답 파싱
         let data;
         try {
             data = JSON.parse(raw);
         } catch {
-            console.error("Worker 응답 깨짐:", raw);
+            console.error("Worker 응답:", raw);
             throw new Error("응답 파싱 실패");
         }
 
@@ -217,20 +212,16 @@ async function handleUpload() {
             throw new Error("AI 결과 없음");
         }
 
-        // 4️⃣ AI JSON 파싱
         let parsed;
         try {
             parsed = JSON.parse(data.result);
         } catch {
-            console.error("AI JSON 깨짐:", data.result);
-            throw new Error("AI 결과 형식 오류");
+            console.error("AI JSON:", data.result);
+            throw new Error("AI 형식 오류");
         }
 
-        const chapters = parsed.chapters || [];
-        const questions = parsed.questions || [];
-
-        sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(chapters));
-        sessionStorage.setItem('sciQuiz_session', JSON.stringify(questions));
+        sessionStorage.setItem('sciQuiz_chapters', JSON.stringify(parsed.chapters || []));
+        sessionStorage.setItem('sciQuiz_session', JSON.stringify(parsed.questions || []));
 
         hideLoading();
         window.location.href = 'editor.html';
@@ -238,7 +229,7 @@ async function handleUpload() {
     } catch (err) {
         console.error(err);
         hideLoading();
-        showToast(err.message || 'AI 처리 실패', 'error');
+        showToast(err.message, 'error');
     }
 }
 
