@@ -174,7 +174,15 @@ async function handleUpload() {
 
     try {
         const file = input.files[0];
+
         const text = await extractTextFromPDF(file);
+
+        // 🔥 핵심: 무조건 string + fallback
+        const safeText = (text || "").trim();
+
+        if (!safeText) {
+            throw new Error("PDF 텍스트 추출 실패");
+        }
 
         const res = await fetch("https://qbank.ysw906.workers.dev", {
             method: "POST",
@@ -182,13 +190,13 @@ async function handleUpload() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: String(text || "").slice(0, 5000)
+                prompt: safeText.slice(0, 5000)
             })
         });
 
         const raw = await res.text();
 
-        // 🔥 서버 에러 먼저 체크
+        // 🔥 여기서 무조건 먼저 체크
         if (!res.ok) {
             console.error("Worker error:", raw);
             throw new Error("HTTP " + res.status);
@@ -198,13 +206,12 @@ async function handleUpload() {
         try {
             data = JSON.parse(raw);
         } catch (e) {
-            console.error("JSON parse 실패:", raw);
+            console.error("응답 깨짐:", raw);
             throw new Error("JSON 파싱 실패");
         }
 
         if (!data.result) {
-            console.error("result 없음:", data);
-            throw new Error("AI 응답 없음");
+            throw new Error("AI 결과 없음");
         }
 
         let parsed;
@@ -212,7 +219,7 @@ async function handleUpload() {
             parsed = JSON.parse(data.result);
         } catch (e) {
             console.error("AI JSON 깨짐:", data.result);
-            throw new Error("AI 결과 형식 오류");
+            throw new Error("AI 포맷 오류");
         }
 
         const chapters = parsed.chapters || [];
@@ -227,7 +234,7 @@ async function handleUpload() {
     } catch (err) {
         console.error(err);
         hideLoading();
-        showToast('AI 처리 실패', 'error');
+        showToast(err.message || 'AI 처리 실패', 'error');
     }
 }
 
