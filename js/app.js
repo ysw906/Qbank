@@ -221,21 +221,18 @@ async function generateQuestions() {
   }
 ]
 
-- 객관식이면 choices 포함
-- 서술형이면 choices = null
-
 단원:
 ${selectedTitles.join(", ")}
 
 문제 유형: ${type}
 `;
 
-        var result = await generateWithAI(prompt);
+        const result = await generateWithAI(prompt);
 
         // 👉 JSON 파싱
-        var questions = JSON.parse(result);
+        const questions = JSON.parse(result);
 
-        // 단원 정보 붙이기
+        // 단원 정보 추가
         questions.forEach(function(q, i) {
             q.chapterTitle = selectedTitles[i % selectedTitles.length];
         });
@@ -248,7 +245,7 @@ ${selectedTitles.join(", ")}
     } catch (err) {
         console.error(err);
         hideLoading();
-        showToast('AI 문제 생성 실패 (JSON 오류 가능)', 'error');
+        showToast('AI 문제 생성 실패 (JSON 형식 확인)', 'error');
     }
 }
 
